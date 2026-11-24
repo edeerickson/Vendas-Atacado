@@ -252,12 +252,13 @@ const ord=m=>parseInt(m)||0;
 const nome=l=>l.replace(' X4',' 4X').replace(' X8',' 8X').replace(' X16',' 16X').replace('Mono ','');
 const compra=i=>C==='f'?i.fc:i.oc, venda=i=>C==='f'?i.fv:i.ov;
 // disponibilidade: o que o Painel do atacado decidiu; se nunca decidiu, vale a lista padrão do catálogo
-function ativo(i){const F=window.FXDisp;let e=null;if(F&&F.carregado&&F.carregado()){e=F.estado(i.sku);if(e===null&&i.skuCat&&i.skuCat!==i.sku)e=F.estado(i.skuCat)}return e===null?PADRAO.has(i.skuCat+'|'+i.m+'|'+i.l):e}
+function ativo(i){if(i.l==='Boné Fishermans'){const F=window.FXDisp;return !!(F&&F.carregado&&F.carregado()&&F.familiaDisponivel('bone'))}const F=window.FXDisp;let e=null;if(F&&F.carregado&&F.carregado()){e=F.estado(i.sku);if(e===null&&i.skuCat&&i.skuCat!==i.sku)e=F.estado(i.skuCat)}return e===null?PADRAO.has(i.skuCat+'|'+i.m+'|'+i.l):e}
 const alicateDisp=()=>{const F=window.FXDisp;return !F||!F.carregado||!F.carregado()||F.familiaDisponivel('alicate')};
 const alicateOk=()=>SEM_ESTOQUE||alicateDisp();
 const vende=i=>(SEM_ESTOQUE||ativo(i))&&compra(i)!=null;
 const semEst=i=>SEM_ESTOQUE&&i.l&&ITENS.includes(i)&&!ativo(i);
 const COPO=()=>ITENS.filter(i=>i.l==='Copo Fishermans');
+const BONE=()=>ITENS.find(i=>i.l==='Boné Fishermans');
 
 function salvar(){try{localStorage.setItem(ST,JSON.stringify({C,Q,PAG,OBS}))}catch(e){}}
 function carregar(){try{const s=JSON.parse(localStorage.getItem(ST)||'null');if(s){C=s.C||null;Q=s.Q||{};PAG=s.PAG||'Pix';OBS=s.OBS||''}}catch(e){}}
@@ -292,7 +293,9 @@ function montar(){
   const cp=COPO().filter(vende); const c10=cp.find(x=>x.m==='10 un'), c15=cp.find(x=>x.m!=='10 un');
   const copo=c10?`<div class="acc"><img src="${BASE}copo.jpg" alt=""><div class="t"><h3>Copo Fishermans</h3><p>${brl(compra(c10))} a partir de 10 un${c15?' · '+brl(compra(c15))+' acima de 15 un':''}</p>${c10&&semEst(c10)?'<p class="warn">Sem estoque no momento</p>':''}<p class="warn" data-w="copo"></p></div><input class="q${c10&&semEst(c10)?' fo':''}" type="number" inputmode="numeric" min="0" step="1" data-k="COPO" aria-label="Quantidade de copos"></div>`:'';
   const al=alicateOk()?`<div class="acc"><img src="${BASE}alicate.jpg" alt=""><div class="t"><h3>Alicate Fishermans</h3><p>${brl(59.9)} · mínimo de 10 un</p>${SEM_ESTOQUE&&!alicateDisp()?'<p class="warn">Sem estoque no momento</p>':''}<p class="warn" data-w="alicate"></p></div><input class="q${SEM_ESTOQUE&&!alicateDisp()?' fo':''}" type="number" inputmode="numeric" min="0" step="1" data-k="ALICATE" aria-label="Quantidade de alicates"></div>`:'';
-  if(copo||al){nav+=`<a href="#f-acc">Acessórios<span data-nav="acc"></span></a>`;h+=`<section class="fam" id="f-acc"><h2>Acessórios</h2><p>Venda a partir de 10 unidades por item.</p><article class="blk">${copo}${al}</article></section>`}
+  const bt=BONE(), bOk=bt&&vende(bt);
+  const bone=bOk?`<div class="acc"><img src="${BASE}bone.jpg" alt=""><div class="t"><h3>Boné Fishermans</h3><p>${brl(compra(bt))} · boné trucker ajustável</p>${semEst(bt)?'<p class="warn">Sem estoque no momento</p>':''}</div><input class="q${semEst(bt)?' fo':''}" type="number" inputmode="numeric" min="0" step="1" data-k="BONE" aria-label="Quantidade de bonés"></div>`:'';
+  if(copo||al||bone){nav+=`<a href="#f-acc">Acessórios<span data-nav="acc"></span></a>`;h+=`<section class="fam" id="f-acc"><h2>Acessórios</h2><p>Copo e Alicate: venda a partir de 10 unidades.</p><article class="blk">${copo}${al}${bone}</article></section>`}
   if(SEM_ESTOQUE&&h) h='<p class="leg"><i></i>Borda tracejada: sem estoque no momento. Pode incluir no pedido; o vendedor confirma o prazo.</p>'+h;
   $('#nav').innerHTML=nav; $('#main').innerHTML=h||'<p class="load">Nenhum produto disponível no momento.</p>';
   document.querySelectorAll('.q').forEach(e=>{const v=Q[e.dataset.k];if(v)e.value=v;e.classList.toggle('on',!!v)});
@@ -309,6 +312,7 @@ function linhasPedido(){
   const qc=Q.COPO||0, cp=COPO().filter(vende);
   if(qc&&cp.length){const t=cp.find(x=>x.m===(qc>15?'Acima de 15 un':'10 un'))||cp[0];const c=compra(t);out.push({i:{l:'Copo Fishermans',m:'',b:'',sku:t.sku},q:qc,c,sub:c*qc,lu:(venda(t)-c)*qc,acc:'Copo Fishermans',se:semEst(t)})}
   const qa=Q.ALICATE||0; if(qa&&alicateOk()) out.push({i:{l:'Alicate Fishermans',m:'',b:''},q:qa,c:59.9,sub:59.9*qa,lu:0,acc:'Alicate Fishermans',se:SEM_ESTOQUE&&!alicateDisp()});
+  const qb=Q.BONE||0, bt=BONE(); if(qb&&bt){if(vende(bt)){const c=compra(bt);out.push({i:{l:'Boné Fishermans',m:'',b:'',sku:bt.sku},q:qb,c,sub:c*qb,lu:(venda(bt)-c)*qb,acc:'Boné Fishermans',se:semEst(bt)})}else fora.push(bt)}
   return {ls:out,fora};
 }
 function atualizar(){
@@ -319,7 +323,7 @@ function atualizar(){
   $('#rever').disabled=!un;
   document.querySelectorAll('[data-sub]').forEach(e=>{const s=ls.filter(x=>x.i.l===e.dataset.sub);const v=s.reduce((a,x)=>a+x.sub,0),q=s.reduce((a,x)=>a+x.q,0);e.innerHTML=q?`${brl(v)}<small>${q} un</small>`:''});
   FAMS.forEach(f=>{const e=document.querySelector(`[data-nav="${f.id}"]`);if(!e)return;const q=ls.filter(x=>f.linhas.some(l=>l[0]===x.i.l)).reduce((a,x)=>a+x.q,0);e.textContent=q||''});
-  const ea=document.querySelector('[data-nav="acc"]');if(ea)ea.textContent=((Q.COPO||0)+(Q.ALICATE||0))||'';
+  const ea=document.querySelector('[data-nav="acc"]');if(ea)ea.textContent=((Q.COPO||0)+(Q.ALICATE||0)+(Q.BONE||0))||'';
   [['copo',Q.COPO],['alicate',Q.ALICATE]].forEach(([k,q])=>{const e=document.querySelector(`[data-w="${k}"]`);if(e)e.textContent=q&&q<10?'Mínimo de 10 unidades':''});
 }
 // ---------- frete (estimativa PAC, origem Curitiba/PR) ----------
@@ -334,7 +338,7 @@ function revisar(){
   if(Q.COPO&&Q.COPO<10) al.push('Copo: mínimo de 10 unidades.');
   if(Q.ALICATE&&Q.ALICATE<10) al.push('Alicate: mínimo de 10 unidades.');
   const se=ls.filter(x=>x.se); if(se.length) al.push(`${se.length==1?'1 item está':se.length+' itens estão'} sem estoque no momento: ${se.map(x=>x.acc||nome(x.i.l)+' '+x.i.m+' '+bit(x.i.b)).join(', ')}. Eles seguem no pedido marcados, e o vendedor confirma o prazo.`);
-  if(fora.length) al.push(`${fora.length==1?'Este item não está disponível':'Estes itens não estão disponíveis'} ${C==='f'?'na loja física':'na loja online'} e ${fora.length==1?'ficou':'ficaram'} fora do pedido: ${fora.map(i=>nome(i.l)+' '+i.m+' '+bit(i.b)).join(', ')}.`);
+  if(fora.length) al.push(`${fora.length==1?'Este item não está disponível':'Estes itens não estão disponíveis'} ${C==='f'?'na loja física':'na loja online'} e ${fora.length==1?'ficou':'ficaram'} fora do pedido: ${fora.map(i=>i.b==='unidade'?nome(i.l):nome(i.l)+' '+i.m+' '+bit(i.b)).join(', ')}.`);
   $('#alertas').innerHTML=al.map(a=>`<div class="alert">${a}</div>`).join('');
   let h='',g='';
   ls.forEach(x=>{const gr=x.acc?'Acessórios':nome(x.i.l)+' '+x.i.m;if(gr!==g){g=gr;h+=`<div class="gh">${gr}</div>`}
